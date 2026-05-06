@@ -1,0 +1,126 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+HypelineProject is a full-stack affiliate marketing platform for events. It connects three user types:
+- **Producers** – create events and campaigns with a commission rate
+- **Marketers** – join campaigns, get a unique coupon code and tracking link, earn commissions on verified sales
+- **Customers** – click affiliate links, are redirected to external ticketing platforms
+- **Admin** – manages users and payout requests
+
+The core flow: Producer creates Campaign → Marketer joins and gets Coupon → Marketer shares `/go/:slug` link → Customer clicks → ClickLog recorded → Producer reports sale with coupon → Commission calculated → Payout after 14-day hold.
+
+## Tech Stack
+
+- **Backend**: Node.js (≥18) + Express 4, ES modules (`"type": "module"`), Mongoose 8 (MongoDB Atlas), Zod validation, JWT (access + refresh tokens via HttpOnly cookies)
+- **Frontend**: React 18 + Vite 5, TailwindCSS 3, React Query (TanStack v5), Zustand, React Hook Form, Axios, Framer Motion, Lucide icons
+- **No TypeScript** – pure JavaScript throughout
+- **No test framework** – testing is manual
+
+## Commands
+
+### Backend (`/backend`)
+
+```bash
+npm run dev       # Development server with nodemon (port 5000)
+npm start         # Production server
+npm run seed      # Create initial admin user (run once after first setup)
+```
+
+### Frontend (`/frontend`)
+
+```bash
+npm run dev       # Vite dev server (port 5173, proxies /api → localhost:5000)
+npm run build     # Production bundle → dist/
+npm run preview   # Preview production build locally
+npm run lint      # ESLint
+```
+
+## Environment Variables
+
+Neither `.env.example` file exists yet — create them from these references.
+
+**Backend** (`backend/.env`):
+```
+MONGODB_URI=mongodb+srv://...
+JWT_ACCESS_SECRET=<32+ char random string>
+JWT_REFRESH_SECRET=<32+ char random string>
+COOKIE_SECRET=<32+ char random string>
+CLIENT_URL=http://localhost:5173
+NODE_ENV=development
+PORT=5000
+```
+
+**Frontend** (`frontend/.env`):
+```
+VITE_API_URL=http://localhost:5000
+```
+
+## Architecture
+
+### Backend (`backend/src/`)
+
+```
+config/       – db.js: MongoDB connection via Mongoose
+models/       – 9 schemas: User, Event, Campaign, Referral, Coupon, ClickLog,
+                Commission, PayoutRequest, Notification
+controllers/  – business logic (one file per resource)
+routes/       – Express routers (auth, events, campaigns, referrals,
+                tracking, commissions, payouts, notifications, me, admin)
+middleware/   – auth.js (JWT verify + refresh), rbac.js (role guard),
+                validate.js (Zod), errorHandler.js
+services/     – couponService.js (8-char alphanumeric generation),
+                masavService.js (Israeli bank transfer CSV export)
+validators/   – Zod schemas for each route group
+utils/        – logger, token helpers
+scripts/      – seed.js
+```
+
+Entry point: `server.js` → imports `src/app.js` (Express setup, mounts all routes under `/api`).
+
+### Frontend (`frontend/src/`)
+
+```
+main.jsx      – React root, QueryClientProvider, BrowserRouter, stores
+App.jsx       – Route tree with role-based ProtectedRoute guards
+services/api.js – Axios instance with JWT + silent refresh token interceptor
+store/        – authStore.js (Zustand, user + token state), toastStore.js
+components/
+  ui/         – reusable primitives (Button, Toast, Stat, FormField, Logo…)
+  auth/       – ProtectedRoute component
+  layout/     – PublicLayout (navbar + footer), DashboardLayout (sidebar)
+pages/
+  public/     – Home, Events, EventDetails, GoRedirect (/go/:slug), NotFound
+  auth/       – Login, RegisterChoice, RegisterProducer, RegisterMarketer, RegisterCustomer
+  producer/   – Dashboard, CreateEvent, MyEvents, Campaigns, Reports
+  marketer/   – Dashboard, AvailableEvents, MyLinks, Earnings
+  admin/      – Dashboard, Users, Payouts
+  shared/     – Profile (all roles)
+```
+
+### Key Patterns
+
+**Auth flow**: `POST /api/auth/login` returns `accessToken` (JSON) + sets `refreshToken` cookie (HttpOnly). The Axios interceptor in `api.js` automatically calls `/api/auth/refresh` on 401 and retries the original request.
+
+**RBAC**: Every protected route hits the `auth` middleware (verifies JWT), then `rbac([...roles])` middleware checks `req.user.role`.
+
+**Validation**: Controllers call `validate(schema)` middleware which runs a Zod schema; errors surface as 400 with structured messages.
+
+**Click tracking / anti-fraud**: `ClickLog` deduplicates by hashing IP + user-agent; same visitor clicking the same link within the dedup window is not double-counted.
+
+**Commission hold**: Commissions are created with `status: 'pending'` and only become payable after `holdDays` (default 14) have elapsed since the sale date.
+
+**Coupon codes**: Generated by `couponService.js` as 8-character uppercase alphanumeric strings, guaranteed unique per `Coupon` collection.
+
+**State management split**: Zustand handles client-side auth state and toast queue; React Query handles all server data fetching and caching.
+
+**PWA**: Vite PWA plugin configured in `vite.config.js`; manifest and icons live in `frontend/public/`.
+
+**Hebrew / RTL**: TailwindCSS config uses the Heebo font and RTL-aware utilities throughout UI components.
+
+## Deployment
+
+- **Frontend**: Vercel (`frontend/vercel.json` rewrites all paths to `index.html` for SPA routing)
+- **Backend**: Render.com (see SETUP.md for full deployment steps)
