@@ -2,25 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Workflow
-
-Follow this order for every task:
-
-1. **Understand** – grasp the goal, identify affected users, define scope. Ask if anything is unclear before writing code.
-2. **Break down** – split work into small, atomic steps. Complete one step at a time; do not jump ahead.
-3. **Execute** – write clean, production-ready code. No placeholders, no half-finished logic.
-4. **Architecture** – maintain separation of concerns (routes → controllers → services → models). Flag structural issues before they compound.
-5. **Security** – validate all inputs at boundaries (Zod schemas), enforce RBAC on every protected route, avoid injection and XSS vectors.
-6. **UX** – keep flows simple; reduce friction; surface clear error states to the user.
-7. **Testing** – reason through edge cases and failure modes before finishing a feature.
-8. **Explain** – after making non-obvious decisions, add a one-line comment or brief note in the PR description explaining *why*.
-
-### General rules
-- Be concise. Avoid unnecessary explanations.
-- Do not repeat work already done in the codebase.
-- Prefer clarity over cleverness.
-- Think before coding.
-
 ## Project Overview
 
 HypelineProject is a full-stack affiliate marketing platform for events. It connects three user types:
